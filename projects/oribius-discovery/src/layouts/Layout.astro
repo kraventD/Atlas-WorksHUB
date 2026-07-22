@@ -1,0 +1,69 @@
+---
+import { Navbar } from "@/components/layout/Navbar";
+import { XpToast } from "@/components/ui/XpToast";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import "@/styles/global.css";
+
+export interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+  currentPath?: string;
+}
+
+const { title = "Oribius Discovery", description = "Explora, descubre y juega. Tu portal premium de videojuegos curado.", image = "/images/logo.png", currentPath = "/" } = Astro.props;
+const canonical = new URL(currentPath, "https://oribius-discovery.vercel.app").href;
+
+// Obtener sesión del usuario desde cookies
+const supabase = createSupabaseServerClient(Astro.cookies);
+const { data: { session } } = await supabase.auth.getSession();
+
+let profileAvatarUrl = "";
+if (session?.user) {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("avatar_url")
+    .eq("id", session.user.id)
+    .single();
+  profileAvatarUrl = profile?.avatar_url || "";
+}
+
+const user = session?.user ? {
+  id: session.user.id,
+  email: session.user.email || "",
+  displayName: session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "Usuario",
+  avatarUrl: profileAvatarUrl || session.user.user_metadata?.avatar_url || "",
+} : null;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={image} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Oribius Discovery" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={image} />
+    <link rel="canonical" href={canonical} />
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
+  </head>
+  <body class="bg-dark-950 text-white antialiased">
+    <Navbar currentPath={currentPath} user={user} client:load />
+    <XpToast client:idle />
+    <div class="pt-14">
+      <slot />
+    </div>
+  </body>
+</html>

@@ -1,0 +1,80 @@
+---
+import Layout from "@/layouts/Layout.astro"
+import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { ALL_ACHIEVEMENTS, levelProgress } from "@/lib/achievements"
+import { createClient } from "@supabase/supabase-js"
+
+const supabase = createSupabaseServerClient(Astro.cookies)
+const { data: { session } } = await supabase.auth.getSession()
+
+const achievements = ALL_ACHIEVEMENTS.map((a) => ({ ...a, unlocked: false, unlocked_at: null }))
+let level = { currentLevel: 1, currentXp: 0, nextLevelXp: 100, progress: 0 }
+
+if (session?.user) {
+  const supabaseAdmin = createClient(import.meta.env.SUPABASE_URL, import.meta.env.SUPABASE_SERVICE_KEY)
+  const { data: unlocked } = await supabase
+    .from("achievements")
+    .select("achievement_key, unlocked_at")
+    .eq("user_id", session.user.id)
+
+  const unlockedKeys = new Set((unlocked || []).map((a: any) => a.achievement_key))
+
+  for (const a of achievements) {
+    a.unlocked = unlockedKeys.has(a.key)
+    a.unlocked_at = (unlocked || []).find((u: any) => u.achievement_key === a.key)?.unlocked_at || null
+  }
+
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("xp")
+    .eq("id", session.user.id)
+    .single()
+
+  level = levelProgress(profile?.xp || 0)
+}
+---
+
+<Layout title="Logros — Oribius Discovery">
+  <main class="min-h-screen pt-24 pb-16 px-4 max-w-6xl mx-auto">
+    <div class="flex items-center justify-between mb-8">
+      <h1 class="font-display text-3xl text-white font-bold">LOGROS</h1>
+      {session?.user && (
+        <div class="flex items-center gap-4 bg-dark-900 border border-white/5 rounded-xl px-5 py-3">
+          <div class="text-right">
+            <p class="text-white font-bold text-lg">Nv. {level.currentLevel}</p>
+            <p class="text-gray-500 text-[11px]">{level.currentXp} / {level.nextLevelXp} XP</p>
+          </div>
+          <div class="w-24 h-2 rounded-full bg-white/10 overflow-hidden">
+            <div class="h-full rounded-full bg-orange-500 transition-all" style={`width: ${level.progress * 100}%`} />
+          </div>
+        </div>
+      )}
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+      {achievements.map((a) => (
+        <div class={`rounded-xl border p-5 text-center transition-all ${
+          a.unlocked
+            ? "bg-orange-500/5 border-orange-500/30"
+            : "bg-dark-900 border-white/5 opacity-50"
+        }`}>
+          <div class="text-3xl mb-2">{a.icon}</div>
+          <h3 class={`text-sm font-semibold mb-1 ${a.unlocked ? "text-white" : "text-gray-500"}`}>{a.title}</h3>
+          <p class="text-[11px] text-gray-500 mb-2">{a.description}</p>
+          {a.unlocked ? (
+            <p class="text-[10px] text-orange-500">{new Date(a.unlocked_at).toLocaleDateString("es-ES")}</p>
+          ) : (
+            <p class="text-[10px] text-gray-600">+{a.xpReward} XP</p>
+          )}
+        </div>
+      ))}
+    </div>
+
+    {!session?.user && (
+      <div class="text-center mt-12">
+        <p class="text-gray-500 text-sm mb-3">Inicia sesión para ver tus logros</p>
+        <a href="/login" class="inline-block px-6 py-2.5 rounded-lg bg-orange-500 text-black font-bold text-xs tracking-wide">INICIAR SESIÓN</a>
+      </div>
+    )}
+  </main>
+</Layout>

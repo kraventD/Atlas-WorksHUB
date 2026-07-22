@@ -1,0 +1,21 @@
+#!/bin/bash
+dir="$HOME/screenshots"
+mkdir -p "$dir"
+file="$dir/screenshot-$(date +%Y%m%d-%H%M%S).png"
+
+GRIMBLAST="$HOME/.local/lib/hyde/screenshot/grimblast"
+
+case "${1:-p}" in
+  p|output|screen) mode="output" ;;
+  s|area)          mode="area" ;;
+  m|active)        mode="active" ;;
+  *)               mode="output" ;;
+esac
+
+if ! "$GRIMBLAST" copysave "$mode" "$file" 2>/dev/null; then
+  [ -f "$file" ] && rm "$file"
+  exit 0
+fi
+
+[ -s "$file" ] && satty --filename "$file" --output-filename "$file" &
+notify-send "Screenshot" "screenshot-$(basename "$file")"

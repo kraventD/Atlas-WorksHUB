@@ -1,0 +1,142 @@
+---
+import Layout from "@/layouts/Layout.astro"
+import { createSupabaseServerClient } from "@/lib/supabase/server"
+
+const supabase = createSupabaseServerClient(Astro.cookies)
+const { data: { session } } = await supabase.auth.getSession()
+const isRecovery = Astro.url.searchParams.get("type") === "recovery"
+---
+
+<Layout title="Recuperar contraseña — Oribius Discovery" currentPath={Astro.url.pathname}>
+  <main class="min-h-screen flex items-center justify-center px-4">
+    <div class="w-full max-w-sm">
+      <a href="/" class="flex justify-center mb-8">
+        <img src="/images/logo.png" alt="Oribius Discovery" class="h-10 w-auto" />
+      </a>
+
+      {isRecovery || session ? (
+        <>
+          <h1 class="text-2xl font-bold text-white text-center mb-2">Nueva contraseña</h1>
+          <p class="text-gray-500 text-sm text-center mb-8">Ingresa tu nueva contraseña</p>
+
+          <form id="reset-form" class="space-y-4">
+            <div>
+              <label for="new-password" class="text-gray-400 text-sm block mb-1">Nueva contraseña</label>
+              <input id="new-password" type="password" required minlength="6" class="w-full h-10 rounded-lg bg-dark-800 border border-dark-700 px-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-orange-500/50" placeholder="••••••••" />
+            </div>
+            <div>
+              <label for="confirm-password" class="text-gray-400 text-sm block mb-1">Confirmar contraseña</label>
+              <input id="confirm-password" type="password" required minlength="6" class="w-full h-10 rounded-lg bg-dark-800 border border-dark-700 px-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-orange-500/50" placeholder="••••••••" />
+            </div>
+
+            <p id="reset-error" class="text-red-500 text-sm hidden"></p>
+            <p id="reset-success" class="text-green-500 text-sm hidden"></p>
+
+            <button type="submit" class="w-full h-10 rounded-lg bg-orange-500 text-black font-bold text-sm hover:bg-orange-600 transition-colors">
+              CAMBIAR CONTRASEÑA
+            </button>
+          </form>
+
+          <p class="text-gray-500 text-sm text-center mt-6">
+            <a href="/login" class="text-orange-500 hover:text-orange-400">Volver a iniciar sesión</a>
+          </p>
+        </>
+      ) : (
+        <>
+          <h1 class="text-2xl font-bold text-white text-center mb-2">Recuperar contraseña</h1>
+          <p class="text-gray-500 text-sm text-center mb-8">Te enviaremos un enlace para restablecer tu contraseña</p>
+
+          <form id="email-form" class="space-y-4">
+            <div>
+              <label for="email" class="text-gray-400 text-sm block mb-1">Correo electrónico</label>
+              <input id="email" type="email" required class="w-full h-10 rounded-lg bg-dark-800 border border-dark-700 px-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-orange-500/50" placeholder="tu@correo.com" />
+            </div>
+
+            <p id="email-error" class="text-red-500 text-sm hidden"></p>
+            <p id="email-success" class="text-green-500 text-sm hidden"></p>
+
+            <button type="submit" class="w-full h-10 rounded-lg bg-orange-500 text-black font-bold text-sm hover:bg-orange-600 transition-colors">
+              ENVIAR ENLACE
+            </button>
+          </form>
+
+          <p class="text-gray-500 text-sm text-center mt-6">
+            <a href="/login" class="text-orange-500 hover:text-orange-400">Volver a iniciar sesión</a>
+          </p>
+        </>
+      )}
+    </div>
+  </main>
+
+  <script>
+    const SUPABASE_URL = "https://pwmydijhjmyrbhllbozm.supabase.co"
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3bXlkaWpoam15cmJobGxib3ptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzOTYxNDMsImV4cCI6MjA5OTk3MjE0M30.bvWdGv_8EdRUSu9MVN4V3rn44fPGjYFEcngJbAHAhwo"
+
+    import { createClient } from "@supabase/supabase-js"
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+    // Step 1: Send reset email
+    document.getElementById("email-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault()
+      const email = document.getElementById("email").value
+      const errorEl = document.getElementById("email-error")
+      const successEl = document.getElementById("email-success")
+
+      errorEl.classList.add("hidden")
+      successEl.classList.add("hidden")
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + "/auth/callback?type=recovery",
+      })
+
+      if (error) {
+        errorEl.textContent = error.message
+        errorEl.classList.remove("hidden")
+        return
+      }
+
+      successEl.textContent = "Te hemos enviado un enlace de recuperación a tu correo."
+      successEl.classList.remove("hidden")
+      document.getElementById("email").value = ""
+    })
+
+    // Step 2: Update password
+    document.getElementById("reset-form")?.addEventListener("submit", async (e) => {
+      e.preventDefault()
+      const newPassword = document.getElementById("new-password").value
+      const confirmPassword = document.getElementById("confirm-password").value
+      const errorEl = document.getElementById("reset-error")
+      const successEl = document.getElementById("reset-success")
+
+      errorEl.classList.add("hidden")
+      successEl.classList.add("hidden")
+
+      if (newPassword !== confirmPassword) {
+        errorEl.textContent = "Las contraseñas no coinciden"
+        errorEl.classList.remove("hidden")
+        return
+      }
+
+      if (newPassword.length < 6) {
+        errorEl.textContent = "La contraseña debe tener al menos 6 caracteres"
+        errorEl.classList.remove("hidden")
+        return
+      }
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+
+      if (error) {
+        errorEl.textContent = error.message
+        errorEl.classList.remove("hidden")
+        return
+      }
+
+      successEl.textContent = "Contraseña actualizada correctamente. Redirigiendo..."
+      successEl.classList.remove("hidden")
+
+      setTimeout(() => {
+        window.location.href = "/login"
+      }, 2000)
+    })
+  </script>
+</Layout>

@@ -1,0 +1,5 @@
+# ── Laptop specific packages (in addition to common) ──
+tlp
+tlp-rdw
+powertop
+throttled

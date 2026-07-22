@@ -1,0 +1,27 @@
+#!/bin/bash
+case "${1:-}" in
+  next)     playerctl next; exit 0 ;;
+  prev)     playerctl previous; exit 0 ;;
+  play-pause) playerctl play-pause; exit 0 ;;
+esac
+
+status=$(playerctl status 2>/dev/null) || exit 0
+artist=$(playerctl metadata artist 2>/dev/null)
+title=$(playerctl metadata title 2>/dev/null)
+[ -z "$title" ] && [ -z "$artist" ] && exit 0
+
+[ ${#title} -gt 40 ] && title="${title:0:37}..."
+[ ${#artist} -gt 25 ] && artist="${artist:0:22}..."
+
+case "$status" in
+  Playing) icon="▶" ;;
+  Paused)  icon="⏸" ;;
+  *)       exit 0 ;;
+esac
+
+text="$icon $title"
+[ -n "$artist" ] && text="$text - $artist"
+
+cat <<EOF
+{"text":"$text","class":"$status","alt":"$status","tooltip":"$title - $artist"}
+EOF

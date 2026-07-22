@@ -1,0 +1,7 @@
+#!/bin/bash
+items=$(cliphist list 2>/dev/null)
+[ -z "$items" ] && notify-send "Clipboard" "Nothing in history" && exit 0
+item=$(echo "$items" | grep -v "binary data" | head -1)
+[ -z "$item" ] && notify-send "Clipboard" "Only images in history (use PrtSc)" && exit 0
+echo "$item" | cliphist decode 2>/dev/null | wl-copy
+notify-send "Clipboard" "Restored - now press Ctrl+V"

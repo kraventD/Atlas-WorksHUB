@@ -1,0 +1,14 @@
+/* User custom styles */
+
+#custom-music {
+  font-size: 12px;
+  padding: 0 8px;
+}
+
+#custom-music.Playing {
+  color: #a6e3a1;
+}
+
+#custom-music.Paused {
+  color: #f9e2af;
+}

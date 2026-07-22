@@ -1,0 +1,56 @@
+---
+import Layout from "@/layouts/Layout.astro"
+import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { getSimpleGames } from "@/lib/sanity/client"
+import { gameImg } from "@/lib/images"
+
+const supabase = createSupabaseServerClient(Astro.cookies)
+const { data: { session } } = await supabase.auth.getSession()
+
+if (!session?.user) {
+  return Astro.redirect("/login")
+}
+
+const { data: cols } = await supabase
+  .from("collection")
+  .select("game_slug")
+  .eq("user_id", session.user.id)
+  .order("created_at", { ascending: false })
+
+const allGames = await getSimpleGames()
+const gameMap = new Map(allGames.map((g: any) => [g.slug, g]))
+const collectedGames = (cols || []).map((c: any) => gameMap.get(c.game_slug)).filter(Boolean)
+---
+
+<Layout title="Mi colección — Oribius Discovery" currentPath={Astro.url.pathname}>
+  <main class="min-h-screen bg-[#0A0A0A] pt-8">
+    <div class="max-w-6xl mx-auto px-4">
+      <h1 class="text-2xl font-bold text-white mb-8">Mi colección</h1>
+
+      {collectedGames.length > 0 ? (
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+          {collectedGames.map((g: any) => (
+            <a href={`/juego/${g.slug}`} class="group cursor-pointer">
+              <div class="relative aspect-[3/4] rounded-xl bg-dark-900 border border-dark-800/50 overflow-hidden transition-all duration-300 group-hover:border-orange-500/30 group-hover:shadow-lg group-hover:shadow-orange-500/10">
+                {(g.cover_url || g.image) && <img src={gameImg(g, 400)} alt={g.title} class="h-full w-full object-cover" />}
+                <div class="absolute bottom-0 left-0 right-0 h-[40%] bg-gradient-to-t from-dark-950/90 via-dark-950/40 to-transparent" />
+                <div class="absolute bottom-0 left-0 right-0 p-4">
+                  <p class="text-sm font-bold text-white group-hover:text-orange-400 transition-colors line-clamp-2">{g.title}</p>
+                  <div class="flex items-center gap-1 mt-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#EAB308" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <span class="text-xs text-gray-400">{g.rating?.toFixed(1) || "N/A"}</span>
+                  </div>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      ) : (
+        <div class="text-center py-20">
+          <p class="text-gray-500 text-lg">Tu colección está vacía</p>
+          <a href="/explorar" class="text-orange-500 hover:text-orange-400 text-sm mt-2 inline-block">Explorar juegos</a>
+        </div>
+      )}
+    </div>
+  </main>
+</Layout>

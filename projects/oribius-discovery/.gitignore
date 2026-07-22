@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.local
+.DS_Store
+*.log
+studio/node_modules/
+studio/dist/
+.astro/
+.vercel/
+**/node_modules/
+CLAUDE.md

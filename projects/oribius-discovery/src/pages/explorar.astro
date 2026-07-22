@@ -1,0 +1,13 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import { getExploreGames } from "@/lib/sanity/client";
+import { ExploreFilters } from "@/components/explore/ExploreFilters";
+
+const juegos = await getExploreGames();
+---
+
+<Layout title="Explorar — Oribius Discovery" currentPath={Astro.url.pathname}>
+  <main class="min-h-screen bg-[#0A0A0A]">
+    <ExploreFilters games={juegos} client:load />
+  </main>
+</Layout>

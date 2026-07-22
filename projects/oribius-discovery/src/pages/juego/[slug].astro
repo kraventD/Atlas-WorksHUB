@@ -1,0 +1,315 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import { TrailerPlayer } from "@/components/games/TrailerPlayer";
+import { RegionalPrice } from "@/components/games/RegionalPrice";
+import { GameTabs } from "@/components/games/GameTabs";
+import { ScreenshotsGallery } from "@/components/games/ScreenshotsGallery";
+import { getAllGames, getGameBySlug } from "@/lib/sanity/client";
+import { imgUrl } from "@/lib/images";
+import { ADMIN_EMAIL } from "@/lib/constants";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export async function getStaticPaths() {
+  const games = await getAllGames();
+  return games.map((g: any) => ({ params: { slug: g.slug } }));
+}
+
+const { slug } = Astro.params;
+const game = await getGameBySlug(slug);
+
+if (!game) {
+  return Astro.redirect("/404");
+}
+
+const heroImage = game.image || null;
+const screenshots = (game.screenshots || []).map((s: string) => imgUrl(s, 800, 450));
+const tags = game.tags || [];
+const platforms = game.platforms || [];
+const genreNames = game.genre_names || [];
+const releaseDate = game.release_date
+  ? new Date(game.release_date + "T00:00:00").toLocaleDateString("es-ES", { year: "numeric", month: "long", day: "numeric" })
+  : "TBA";
+
+// Guardar visita reciente si el usuario está logueado
+const supabase = createSupabaseServerClient(Astro.cookies);
+const { data: { session } } = await supabase.auth.getSession();
+if (session?.user) {
+  // Registrar visita rápido (sin XP ni logros — se hace en background)
+  const { data: prevVisit } = await supabase
+    .from("recent")
+    .select("id")
+    .eq("user_id", session.user.id)
+    .eq("game_slug", slug)
+    .single()
+
+  if (!prevVisit) {
+    await supabase.from("recent").insert({ user_id: session.user.id, game_slug: slug, visited_at: new Date().toISOString() });
+  } else {
+    await supabase.from("recent").update({ visited_at: new Date().toISOString() }).eq("id", prevVisit.id);
+  }
+}
+
+// Consultar estado de favorito/colección
+let isFavorited = false;
+let isCollected = false;
+if (session?.user) {
+  const { data: fav } = await supabase.from("favorites")
+    .select("id").eq("user_id", session.user.id).eq("game_slug", slug).maybeSingle();
+  if (fav) isFavorited = true;
+  const { data: col } = await supabase.from("collection")
+    .select("id").eq("user_id", session.user.id).eq("game_slug", slug).maybeSingle();
+  if (col) isCollected = true;
+}
+---
+
+<Layout title={`${game.title} — Oribius Discovery`} description={game.description?.slice(0, 160) || `Descubre ${game.title} en Oribius Discovery. Ficha completa, requisitos, precio y reseñas.`} image={game.image || game.cover_url || ""} currentPath={Astro.url.pathname}>
+  <main class="relative min-h-screen bg-[#0A0A0A] overflow-hidden">
+    <!-- Fondo del hero: imagen + fade a negro -->
+    <div class="absolute inset-x-0 top-0 h-[780px] pointer-events-none">
+      {heroImage && <img src={imgUrl(heroImage, 1200)} alt="" class="h-full w-full object-cover" />}
+      <div class="absolute inset-0 bg-gradient-to-r from-[#0A0A0A] via-[#0A0A0A]/70 to-[#0A0A0A]/30" />
+      <div class="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-transparent to-[#0A0A0A]/30" />
+      <div class="absolute bottom-0 left-0 right-0 h-56 bg-gradient-to-t from-[#0A0A0A] to-transparent" />
+    </div>
+
+    <!-- Contenido: dos columnas -->
+    <div class="relative z-10 px-8 pb-24 pt-2.5">
+      <div class="flex flex-col md:flex-row gap-8 w-full mb-24">
+        <!-- IZQUIERDA -->
+        <div class="flex-1 min-w-0">
+          <a href="/" class="inline-flex items-center gap-2 text-gray-500 hover:text-white transition-colors text-sm mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Volver
+          </a>
+
+          <h1 class="font-display text-3xl md:text-6xl font-bold leading-none mb-4 text-[#DCCFAE]">
+            {game.title}
+          </h1>
+
+          <div class="flex items-center gap-2 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#F97316" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span class="text-lg font-bold text-white">{game.rating}</span>
+            <span class="text-sm text-gray-500">| Basado en {game.ratings_count ? `${(game.ratings_count / 1000).toFixed(1)}K` : "152K"} valoraciones</span>
+          </div>
+
+          <div class="max-w-md mb-5">
+            <p class="text-gray-400 text-sm leading-relaxed line-clamp-8" id="desc-preview">
+              {game.description}
+            </p>
+            <a href="#descripcion" class="text-orange-500 text-xs font-medium hover:text-orange-400 transition-colors mt-1 inline-block">
+              Ver más...
+            </a>
+          </div>
+
+          <div class="flex flex-wrap gap-2 mb-6">
+            {(game.tags || []).map((tag) => (
+              <span class="px-3 py-1.5 rounded-md bg-black/30 border border-white/10 text-white text-[11px] font-medium tracking-wide">{tag}</span>
+            ))}
+          </div>
+
+          <div class="flex items-center gap-4 mb-5">
+            {(() => {
+              const plats = (game.platforms || []).map((p: string) => p.toLowerCase())
+              const shown = new Set<string>()
+              const result: any[] = []
+              for (const p of plats) {
+                if (p.includes("pc") && !shown.has("pc")) { shown.add("pc"); result.push("pc"); continue }
+                if ((p.includes("playstation") || p.includes("ps")) && !shown.has("ps")) { shown.add("ps"); result.push("ps"); continue }
+                if (p.includes("xbox") && !shown.has("xbox")) { shown.add("xbox"); result.push("xbox"); continue }
+                if ((p.includes("switch") || p.includes("nintendo")) && !shown.has("nintendo")) { shown.add("nintendo"); result.push("nintendo"); continue }
+              }
+              return result.map((plat) => {
+                const png = `/images/platforms/${plat}.png`
+                if (plat === "pc" || plat === "xbox" || plat === "nintendo") return <img src={png} alt={plat} class="h-5 w-auto opacity-70" onerror="this.style.display='none'" />
+                if (plat === "ps") return <img src="/images/platforms/playstation.png" alt="PlayStation" class="h-5 w-auto opacity-70" onerror="this.style.display='none'" />
+                return null
+              })
+            })()}
+          </div>
+          </div>
+
+        <!-- DERECHA -->
+        <div class="hidden md:block w-[300px] shrink-0 space-y-6">
+          <div>
+            <p class="text-gray-300 text-[11px] tracking-wide mb-1 [text-shadow:0_2px_6px_rgba(0,0,0,0.9)]">EDICIÓN ESTÁNDAR</p>
+            <RegionalPrice
+              steamAppId={game.steam_app_id}
+              defaultPrice={game.price}
+              defaultOriginal={game.original_price}
+              defaultDiscount={game.discount_percent}
+              client:visible
+            />
+            <button class="w-full py-3 rounded-lg bg-orange-500 text-black font-bold text-xs tracking-wide hover:bg-orange-600 transition-colors mb-2.5 shadow-lg shadow-black/50">
+              COMPRAR AHORA
+            </button>
+            <button data-action="favorite" data-slug={slug} data-favorited={isFavorited}
+              class={`w-full py-2.5 rounded-lg border transition-colors flex items-center justify-center gap-2 mb-2.5 text-xs font-medium ${
+                isFavorited
+                  ? "bg-orange-500/10 border-orange-500/50 text-orange-400"
+                  : "border-white/20 text-gray-200 hover:bg-white/5"
+              }`}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill={isFavorited ? "#F97316" : "none"} stroke={isFavorited ? "#F97316" : "currentColor"} stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+              <span>{isFavorited ? "En favoritos" : "Agregar a favoritos"}</span>
+            </button>
+            <button data-action="collection" data-slug={slug} data-collected={isCollected}
+              class={`w-full py-2.5 rounded-lg border transition-colors flex items-center justify-center gap-2 text-xs font-medium ${
+                isCollected
+                  ? "bg-orange-500/10 border-orange-500/50 text-orange-400"
+                  : "border-white/20 text-gray-200 hover:bg-white/5"
+              }`}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill={isCollected ? "#F97316" : "none"} stroke={isCollected ? "#F97316" : "currentColor"} stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z"/></svg>
+              <span>{isCollected ? "En colección" : "Agregar a colección"}</span>
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            <div class="flex items-start gap-2.5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 shrink-0 [filter:drop-shadow(0_2px_4px_rgba(0,0,0,0.8))]"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
+              <div><p class="text-gray-300 text-[10px] tracking-wide [text-shadow:0_2px_6px_rgba(0,0,0,0.9)]">DESARROLLADOR</p><p class="text-white text-[13px] font-medium [text-shadow:0_2px_8px_rgba(0,0,0,0.9),0_1px_3px_rgba(0,0,0,0.7)]">{game.developer}</p></div>
+            </div>
+            <div class="flex items-start gap-2.5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 shrink-0 [filter:drop-shadow(0_2px_4px_rgba(0,0,0,0.8))]"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+              <div><p class="text-gray-300 text-[10px] tracking-wide [text-shadow:0_2px_6px_rgba(0,0,0,0.9)]">LANZAMIENTO</p><p class="text-white text-[13px] font-medium [text-shadow:0_2px_8px_rgba(0,0,0,0.9),0_1px_3px_rgba(0,0,0,0.7)]">{releaseDate}</p></div>
+            </div>
+            <div class="flex items-start gap-2.5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 shrink-0 [filter:drop-shadow(0_2px_4px_rgba(0,0,0,0.8))]"><path d="m20.59 13.41-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><circle cx="7" cy="7" r="1"/></svg>
+              <div><p class="text-gray-300 text-[10px] tracking-wide [text-shadow:0_2px_6px_rgba(0,0,0,0.9)]">GÉNERO</p><p class="text-white text-[13px] font-medium [text-shadow:0_2px_8px_rgba(0,0,0,0.9),0_1px_3px_rgba(0,0,0,0.7)]">{genreNames.join(", ") || "No disponible"}</p></div>
+            </div>
+            <div class="flex items-start gap-2.5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 shrink-0 [filter:drop-shadow(0_2px_4px_rgba(0,0,0,0.8))]"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/></svg>
+              <div><p class="text-gray-300 text-[10px] tracking-wide [text-shadow:0_2px_6px_rgba(0,0,0,0.9)]">TAMAÑO</p><p class="text-white text-[13px] font-medium [text-shadow:0_2px_8px_rgba(0,0,0,0.9),0_1px_3px_rgba(0,0,0,0.7)]">{game.size}</p></div>
+            </div>
+            <a href="#requisitos" class="flex items-start gap-2.5 w-full text-left group">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 [filter:drop-shadow(0_2px_4px_rgba(0,0,0,0.8))]"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              <div class="flex-1 min-w-0"><p class="text-gray-300 text-[10px] tracking-wide [text-shadow:0_2px_6px_rgba(0,0,0,0.9)]">REQUISITOS</p><p class="text-white text-[13px] font-medium [text-shadow:0_2px_8px_rgba(0,0,0,0.9),0_1px_3px_rgba(0,0,0,0.7)]">Ver requisitos del sistema</p></div>
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500 group-hover:text-gray-300 shrink-0 mt-1 [filter:drop-shadow(0_2px_4px_rgba(0,0,0,0.8))]"><path d="m9 18 6-6-6-6"/></svg>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- FULL-WIDTH: galería + game tabs -->
+      <!-- Galería multimedia -->
+      {game.trailer_url ? (
+        <div class="flex flex-col md:flex-row gap-3 mb-3 items-stretch">
+          <div class="w-full md:w-[62%]">
+            <TrailerPlayer
+              src={game.trailer_url}
+              poster={heroImage}
+              title={game.title}
+              client:load
+            />
+          </div>
+          <div class="w-full md:w-[38%] flex">
+            <ScreenshotsGallery
+              screenshots={screenshots}
+              client:visible
+            />
+          </div>
+        </div>
+      ) : game.screenshots?.length ? (
+        <div class="mb-3">
+          <ScreenshotsGallery
+            screenshots={game.screenshots || []}
+            client:visible
+          />
+        </div>
+      ) : null}
+
+      <div class="flex items-center gap-1.5 mb-12">
+        <span class="w-7 h-1.5 rounded-full bg-orange-500" />
+        <span class="w-1.5 h-1.5 rounded-full bg-gray-600" />
+        <span class="w-1.5 h-1.5 rounded-full bg-gray-600" />
+        <span class="w-1.5 h-1.5 rounded-full bg-gray-600" />
+        <span class="w-1.5 h-1.5 rounded-full bg-gray-600" />
+        <span class="w-1.5 h-1.5 rounded-full bg-gray-600" />
+      </div>
+
+      <!-- GameTabs -->
+      <div id="game-tabs" class="scroll-mt-24">
+        <GameTabs game={game} slug={slug} userId={session?.user?.id || null} isAdmin={session?.user?.email === ADMIN_EMAIL} client:idle />
+      </div>
+    </div>
+  </main>
+
+  <!-- Auth toast -->
+  <div id="auth-toast" class="fixed bottom-8 right-8 z-50 bg-dark-900 border border-dark-800/50 rounded-xl p-5 shadow-2xl shadow-black/50 max-w-sm hidden">
+    <p class="text-gray-300 text-sm mb-4">
+      Esta función es para usuarios registrados. Inicia sesión o regístrate para agregar este juego a tus favoritos o colección.
+    </p>
+    <div class="flex gap-2">
+      <a href="/login" class="flex-1 py-2.5 rounded-lg bg-orange-500 text-black font-bold text-xs text-center hover:bg-orange-600 transition-colors tracking-wide">INICIAR SESIÓN</a>
+      <button id="toast-close" class="px-4 py-2.5 rounded-lg border border-white/20 text-gray-400 text-xs hover:text-white transition-colors">AHORA NO</button>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  // Track visita en background (XP + logros sin bloquear la página)
+  const slug = document.querySelector("[data-action]")?.getAttribute("data-slug")
+  if (slug) {
+    requestIdleCallback(() => {
+      fetch("/api/auth/track-visit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug }),
+      }).catch(() => {})
+    })
+  }
+
+  const showToast = () => {
+    document.getElementById("auth-toast")?.classList.remove("hidden")
+  }
+
+  document.getElementById("toast-close")?.addEventListener("click", () => {
+    document.getElementById("auth-toast")?.classList.add("hidden")
+  })
+
+  document.querySelectorAll("[data-action]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const action = btn.getAttribute("data-action")
+      const slug = btn.getAttribute("data-slug")
+      const span = btn.querySelector("span")
+      const svg = btn.querySelector("svg")
+      const isActive = action === "favorite"
+        ? btn.getAttribute("data-favorited") === "true"
+        : btn.getAttribute("data-collected") === "true"
+
+      // Si ya está activo, hacemos toggle igual (quitar)
+      const res = await fetch(`/api/auth/toggle-${action}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ game_slug: slug }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        const nowActive = action === "favorite" ? data.favorited : data.collected
+
+        // Update visual
+        btn.className = `w-full py-2.5 rounded-lg border transition-colors flex items-center justify-center gap-2 mb-2.5 text-xs font-medium ${
+          action === "favorite" ? "mb-2.5" : ""
+        } ${
+          nowActive
+            ? "bg-orange-500/10 border-orange-500/50 text-orange-400"
+            : "border-white/20 text-gray-200 hover:bg-white/5"
+        }`
+        svg.setAttribute("fill", nowActive ? "#F97316" : "none")
+        svg.setAttribute("stroke", nowActive ? "#F97316" : "currentColor")
+        span.textContent = nowActive
+          ? (action === "favorite" ? "En favoritos" : "En colección")
+          : (action === "favorite" ? "Agregar a favoritos" : "Agregar a colección")
+        btn.setAttribute("data-favorited", nowActive.toString())
+        btn.setAttribute("data-collected", nowActive.toString())
+
+        // Toast de XP
+        const xpAmount = nowActive ? "+15" : "-15"
+        const label = action === "favorite" ? "Favoritos" : "Colección"
+        window.dispatchEvent(new CustomEvent("xp-toast", { detail: { message: `${xpAmount} XP · ${label}` } }))
+      } else {
+        // No autorizado → mostrar toast
+        showToast()
+      }
+    })
+  })
+</script>

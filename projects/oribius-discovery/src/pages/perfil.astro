@@ -1,0 +1,172 @@
+---
+import Layout from "@/layouts/Layout.astro"
+import { createSupabaseServerClient } from "@/lib/supabase/server"
+import { createClient } from "@supabase/supabase-js"
+import { levelProgress } from "@/lib/achievements"
+import { getSimpleGames } from "@/lib/sanity/client"
+import { ADMIN_EMAIL } from "@/lib/constants"
+
+const supabase = createSupabaseServerClient(Astro.cookies)
+const { data: { session } } = await supabase.auth.getSession()
+
+const targetId = Astro.url.searchParams.get("id")
+const isOwnProfile = !targetId || targetId === session?.user?.id
+const isAdmin = session?.user?.email === ADMIN_EMAIL
+
+// Si no hay targetId y no hay sesión, redirigir al login
+if (!targetId && !session?.user) {
+  return Astro.redirect("/login")
+}
+
+const fetchId = targetId || session?.user?.id
+
+// Usar service_role para leer cualquier perfil (bypass RLS)
+const supabaseAdmin = createClient(
+  import.meta.env.SUPABASE_URL,
+  import.meta.env.SUPABASE_SERVICE_KEY
+)
+
+const { data: profile } = await supabaseAdmin
+  .from("profiles")
+  .select("*")
+  .eq("id", fetchId)
+  .single()
+
+// Privacy check: solo admin puede ver perfiles privados de otros
+if (!isOwnProfile && !profile?.profile_public && !isAdmin) {
+  return Astro.redirect("/?error=perfil-privado")
+}
+
+const userId = fetchId
+
+const [favCount, colCount, revCount, achCount] = await Promise.all([
+  supabaseAdmin.from("favorites").select("*", { count: "exact", head: true }).eq("user_id", userId),
+  supabaseAdmin.from("collection").select("*", { count: "exact", head: true }).eq("user_id", userId),
+  supabaseAdmin.from("reviews").select("*", { count: "exact", head: true }).eq("user_id", userId),
+  supabaseAdmin.from("achievements").select("*", { count: "exact", head: true }).eq("user_id", userId),
+])
+
+// Reciente (solo si es el propio perfil)
+let recentRows: any[] = []
+let gameMap = new Map()
+if (isOwnProfile) {
+  const { data: rows } = await supabaseAdmin
+    .from("recent")
+    .select("game_slug")
+    .eq("user_id", userId)
+    .order("visited_at", { ascending: false })
+    .limit(10)
+  recentRows = rows || []
+  const allGames = await getSimpleGames()
+  gameMap = new Map(allGames.map((g: any) => [g.slug, g.title]))
+}
+
+const displayName = profile?.display_name || "Usuario"
+const avatarUrl = profile?.avatar_url || ""
+const email = profile?.email || ""
+const progress = levelProgress(profile?.xp || 0)
+const bio = profile?.bio || ""
+const profilePublic = profile?.profile_public || false
+---
+
+<Layout title={isOwnProfile ? "Mi perfil — Oribius Discovery" : `${displayName} — Oribius Discovery`} currentPath={Astro.url.pathname}>
+  <main class="min-h-screen bg-[#0A0A0A] pt-8">
+    <div class="max-w-2xl mx-auto px-4">
+      <a href="/" class="inline-flex items-center gap-2 text-gray-500 hover:text-white transition-colors text-sm mb-8">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        Volver
+      </a>
+
+      <!-- Profile header -->
+      <div class="flex items-center gap-6 mb-10">
+        {avatarUrl ? (
+          <img src={avatarUrl} alt={displayName} class="h-20 w-20 rounded-full object-cover border-2 border-orange-500/50" />
+        ) : (
+          <div class="h-20 w-20 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center text-2xl font-bold text-white">
+            {displayName.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div>
+          <h1 class="text-2xl font-bold text-white">{displayName}</h1>
+          {isOwnProfile && <p class="text-gray-500 text-sm">{email}</p>}
+          {!isOwnProfile && profilePublic && <p class="text-gray-500 text-xs">Perfil público</p>}
+          {!isOwnProfile && !profilePublic && isAdmin && <p class="text-orange-400 text-xs">Perfil privado (vista admin)</p>}
+          {bio && <p class="text-gray-400 text-sm mt-1">{bio}</p>}
+          <div class="flex items-center gap-3 mt-2">
+            <span class="text-xs text-orange-500 font-medium">Nivel {progress.currentLevel}</span>
+            <div class="flex-1 h-1.5 w-32 rounded-full bg-dark-800 overflow-hidden">
+              <div class="h-full rounded-full bg-orange-500" style={`width: ${progress.progress * 100}%`} />
+            </div>
+            <span class="text-xs text-gray-500">{progress.currentXp} / {progress.nextLevelXp} XP</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats cards -->
+      <div class="grid grid-cols-4 gap-4 mb-10">
+        <div class="bg-[#141414] border border-white/5 rounded-xl p-4 text-center">
+          <p class="text-2xl font-bold text-white">{favCount.count || 0}</p>
+          <p class="text-gray-500 text-xs mt-1">Guardados</p>
+        </div>
+        <div class="bg-[#141414] border border-white/5 rounded-xl p-4 text-center">
+          <p class="text-2xl font-bold text-white">{colCount.count || 0}</p>
+          <p class="text-gray-500 text-xs mt-1">Colección</p>
+        </div>
+        <div class="bg-[#141414] border border-white/5 rounded-xl p-4 text-center">
+          <p class="text-2xl font-bold text-white">{revCount.count || 0}</p>
+          <p class="text-gray-500 text-xs mt-1">Reseñas</p>
+        </div>
+        <div class="bg-[#141414] border border-white/5 rounded-xl p-4 text-center">
+          <p class="text-2xl font-bold text-white">{achCount.count || 0}</p>
+          <p class="text-gray-500 text-xs mt-1">Logros</p>
+        </div>
+      </div>
+
+      <!-- Admin panel (solo admin viendo otro perfil) -->
+      {isAdmin && !isOwnProfile && (
+        <div class="bg-[#141414] border border-orange-500/20 rounded-xl p-5 mb-8">
+          <h3 class="text-orange-500 text-sm font-bold mb-3">🔧 ADMIN — Gestionar usuario</h3>
+          <form method="POST" action="/api/auth/admin-update-user" class="flex items-center gap-3">
+            <input type="hidden" name="user_id" value={fetchId} />
+            <input
+              type="text"
+              name="display_name"
+              value={displayName}
+              class="flex-1 h-9 rounded-lg bg-dark-800 border border-dark-700 px-3 text-sm text-white focus:outline-none focus:border-orange-500/50"
+            />
+            <button type="submit" class="px-4 h-9 rounded-lg bg-orange-500 text-black text-xs font-bold hover:bg-orange-600 transition-colors whitespace-nowrap">
+              CAMBIAR NOMBRE
+            </button>
+          </form>
+          <p class="text-gray-600 text-[11px] mt-2">ID: {fetchId}</p>
+        </div>
+      )}
+
+      {isOwnProfile && (
+        <>
+          <a href="/logros" class="flex items-center justify-center gap-2 bg-[#141414] border border-white/5 hover:border-orange-500/30 rounded-xl px-5 py-3 mb-8 transition-colors">
+            <span class="text-orange-500 font-bold text-sm">VER LOGROS</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-orange-500"><path d="m9 18 6-6-6-6"/></svg>
+          </a>
+
+          <!-- Recientes -->
+          <div>
+            <h2 class="text-white font-semibold mb-4">Visto recientemente</h2>
+            {recentRows.length > 0 ? (
+              <div class="space-y-2">
+                {recentRows.map((r: any) => (
+                  <a href={`/juego/${r.game_slug}`} class="flex items-center justify-between bg-[#141414] border border-white/5 rounded-lg px-4 py-3 hover:border-orange-500/30 transition-colors">
+                    <span class="text-gray-300 text-sm">{gameMap.get(r.game_slug) || r.game_slug}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600"><path d="m9 18 6-6-6-6"/></svg>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p class="text-gray-500 text-sm">No has visitado ningún juego aún</p>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  </main>
+</Layout>

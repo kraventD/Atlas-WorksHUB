@@ -1,0 +1,7 @@
+# ── Kravent-Platform specific packages (in addition to common) ──
+nvidia-dkms
+nvidia-utils
+nvidia-settings
+nvidia-prime
+cuda
+aihub-fork-git
