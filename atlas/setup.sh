@@ -3,6 +3,7 @@ set -e
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 HOSTNAME="$(hostname)"
+HOSTNAME_LOWER="$(echo "$HOSTNAME" | tr '[:upper:]' '[:lower:]')"
 RAM_GB=$(awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)
 
 echo "=== Atlas WorksHUB Setup ==="
@@ -10,22 +11,34 @@ echo "Hostname: $HOSTNAME"
 echo "RAM: ${RAM_GB}GB"
 echo "Repo: $REPO_DIR"
 
-# Detect machine
-if [ "$HOSTNAME" = "Kravent-Platform" ]; then
-  MACHINE="desktop"
-  echo "Detected: PC Fija (Kravent-Platform)"
-elif [ "$HOSTNAME" = "WorkHub2" ]; then
+# Detect machine (case-insensitive)
+MACHINE=""
+case "$HOSTNAME_LOWER" in
+  kravent-platform)
+    MACHINE="desktop"
+    echo "Detected: PC Fija (Kravent-Platform)"
+    ;;
+  workhub*)
+    MACHINE="laptop"
+    echo "Detected: Laptop (WorkHub2)"
+    ;;
+esac
+
+if [ -z "$MACHINE" ]; then
   MACHINE="laptop"
-  echo "Detected: Laptop (WorkHub2)"
-else
-  echo "Unknown hostname: $HOSTNAME"
-  echo "Create a machine folder: $REPO_DIR/<hostname>/"
-  echo "With at least: monitors.conf"
-  exit 1
+  echo "Hostname '$HOSTNAME' no reconocido. Usando perfil laptop por defecto."
 fi
 
 MACHINE_DIR="$REPO_DIR/$MACHINE"
-[ -d "$MACHINE_DIR" ] || MACHINE_DIR="$REPO_DIR/$HOSTNAME"
+HOSTNAME_DIR="$REPO_DIR/$HOSTNAME"
+[ -d "$HOSTNAME_DIR" ] && MACHINE_DIR="$HOSTNAME_DIR"
+
+# Create machine dir if needed
+if [ ! -d "$MACHINE_DIR" ]; then
+  mkdir -p "$MACHINE_DIR"
+  echo "# monitors.conf generado para $HOSTNAME" > "$MACHINE_DIR/monitors.conf"
+  echo "Creado $MACHINE_DIR con monitors.conf por defecto"
+fi
 
 # ── Helper ──
 install_packages() {
