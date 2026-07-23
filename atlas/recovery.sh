@@ -50,10 +50,14 @@ sudo pacman -S --needed --noconfirm \
 
 # ── 4. Reinstalar configs básicas ──
 echo "[4/6] Restaurando configs..."
-mkdir -p "$HOME/.config/hypr/config" "$HOME/.config/waybar"
-cp -r /home/workhub2/Atlas-WorksHUB/common/config/hypr/* "$HOME/.config/hypr/" 2>/dev/null || true
-cp -r /home/workhub2/Atlas-WorksHUB/common/config/waybar/* "$HOME/.config/waybar/" 2>/dev/null || true
+mkdir -p "$HOME/.config/hypr" "$HOME/.config/waybar" "$HOME/.config/hypr/shaders"
+# Usar config minimal de laptop (sin HyDE)
+cp /home/workhub2/Atlas-WorksHUB/laptop/hyprland.conf "$HOME/.config/hypr/hyprland.conf"
 cp /home/workhub2/Atlas-WorksHUB/laptop/monitors.conf "$HOME/.config/hypr/monitors.conf" 2>/dev/null || true
+# Crear shader vacío para evitar errores
+echo "// disable" > "$HOME/.config/hypr/shaders/disable.frag"
+# Crear screenshots dir
+mkdir -p "$HOME/screenshots"
 
 # ── 5. SDDM auto-login ──
 echo "[5/6] SDDM auto-login..."
