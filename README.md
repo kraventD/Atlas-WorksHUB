@@ -29,12 +29,22 @@ projects/               # Proyectos (copia compartida)
 
 ## Uso inicial
 
-En cada máquina:
+### Método 1: Doble clic (recomendado)
+1. Cloná el repo o descargalo como ZIP
+2. Abrí la carpeta en Dolphin
+3. Hacé doble clic en **setup.desktop**
+4. Elegí "Execute" o "Ejecutar"
 
+### Método 2: Un solo comando (desde kitty)
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/kraventD/Atlas-WorksHUB/main/atlas/bootstrap.sh)"
+```
+
+### Método 3: Manual
 ```bash
 git clone https://github.com/kraventD/Atlas-WorksHUB.git
 cd Atlas-WorksHUB
-./atlas/setup.sh
+bash atlas/setup.sh
 ```
 
 ## Sincronización

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Sincronizar desde GitHub
+Comment=Baja los ultimos cambios del repo
+Exec=bash -c "cd ~/Atlas-WorksHUB && bash atlas/sync-pull.sh; echo 'Presiona Enter para cerrar...'; read"
+Terminal=true
+Type=Application
+Icon=download
+Categories=Settings;

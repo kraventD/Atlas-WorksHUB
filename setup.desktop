@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Instalar Atlas WorksHUB
+Comment=Configura todo el entorno (HyDE + configs + scripts)
+Exec=bash -c "cd ~/Atlas-WorksHUB && bash atlas/setup.sh; echo 'Listo! Presiona Enter para cerrar...'; read"
+Terminal=true
+Type=Application
+Icon=system-run
+Categories=Settings;
