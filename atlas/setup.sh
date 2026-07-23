@@ -67,7 +67,14 @@ fi
 # ── 2. Install HyDE ──
 if ! command -v hyde-shell &>/dev/null; then
   echo "=== Installing HyDE ==="
-  bash <(curl -fsSL https://github.com/HyDE-Project/HyDE/install.sh)
+  if [ -d "$HOME/HyDE" ]; then
+    cd "$HOME/HyDE" && git pull
+  else
+    sudo pacman -S --needed --noconfirm git base-devel
+    git clone --depth 1 https://github.com/HyDE-Project/HyDE "$HOME/HyDE"
+  fi
+  cd "$HOME/HyDE/Scripts"
+  ./install.sh
 fi
 
 # ── 3. Optimize laptop ──
