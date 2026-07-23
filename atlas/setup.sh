@@ -52,8 +52,19 @@ install_packages() {
   done < "$file"
   [ ${#pkgs[@]} -eq 0 ] && return 0
   echo "Installing ${#pkgs[@]} packages from $(basename $file)..."
-  sudo pacman -S --needed --noconfirm "${pkgs[@]}" 2>/dev/null || yay -S --needed --noconfirm "${pkgs[@]}" 2>/dev/null || true
+  yay -S --needed --noconfirm "${pkgs[@]}" --aur --repo 2>/dev/null || sudo pacman -S --needed --noconfirm "${pkgs[@]}" || true
 }
+
+# ── 0. Install AUR helper (yay-bin) first ──
+if ! command -v yay &>/dev/null; then
+  echo "=== Installing yay-bin (AUR helper) ==="
+  sudo pacman -S --needed --noconfirm git base-devel
+  git clone --depth 1 https://aur.archlinux.org/yay-bin.git /tmp/yay-bin
+  cd /tmp/yay-bin
+  makepkg -si --noconfirm --needed
+  cd "$REPO_DIR"
+  rm -rf /tmp/yay-bin
+fi
 
 # ── 1. System packages ──
 echo "=== Installing common packages ==="
@@ -70,12 +81,12 @@ if ! command -v hyde-shell &>/dev/null; then
   if [ -d "$HOME/HyDE" ]; then
     cd "$HOME/HyDE" && git pull
   else
-    sudo pacman -S --needed --noconfirm git base-devel
     git clone --depth 1 https://github.com/HyDE-Project/HyDE "$HOME/HyDE"
   fi
   cd "$HOME/HyDE/Scripts"
   ./install.sh
 fi
+cd "$REPO_DIR"
 
 # ── 3. Optimize laptop ──
 if [ "$MACHINE" = "laptop" ]; then
