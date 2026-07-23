@@ -1,9 +1,39 @@
-# Minimal Hyprland config for WorkHub2 (no HyDE)
+#!/bin/bash
+# Fix completo para laptop WorkHub2 - borra TODO y deja un Hyprland limpio
+set -e
 
-# Monitor
+echo "=== Fix laptop WorkHub2 ==="
+echo "Borrando configs viejas..."
+
+# Nuke everything
+rm -rf /home/workhub2/.config/hypr
+rm -rf /home/workhub2/.config/waybar
+rm -rf /home/workhub2/.config/rofi
+rm -rf /home/workhub2/.config/dunst
+rm -rf /home/workhub2/.config/wlogout
+rm -rf /home/workhub2/.config/Kvantum
+rm -rf /home/workhub2/.config/qt5ct
+rm -rf /home/workhub2/.config/qt6ct
+rm -rf /home/workhub2/.config/starship.toml
+rm -rf /home/workhub2/.config/gtk-3.0
+rm -rf /home/workhub2/.config/gtk-4.0
+rm -rf /home/workhub2/.config/fastfetch
+rm -rf /home/workhub2/.local/share/hyde
+rm -rf /home/workhub2/.local/lib/hyde
+rm -rf /home/workhub2/.local/bin/hyde-*
+
+echo "Creando config limpia..."
+
+mkdir -p /home/workhub2/.config/hypr
+mkdir -p /home/workhub2/.config/hypr/shaders
+mkdir -p /home/workhub2/screenshots
+
+# Poner config minimal DIRECTO (sin copiar archivos)
+cat > /home/workhub2/.config/hypr/hyprland.conf << 'HYPRLANDEOF'
+# Minimal Hyprland config for WorkHub2
+
 monitor=,1920x1080@60,0x0,1
 
-# Keyboard
 input {
     kb_layout = latam
     follow_mouse = 1
@@ -14,7 +44,6 @@ input {
     }
 }
 
-# General
 general {
     gaps_in = 4
     gaps_out = 8
@@ -24,7 +53,6 @@ general {
     layout = dwindle
 }
 
-# Decoration
 decoration {
     rounding = 8
     blur {
@@ -39,7 +67,6 @@ decoration {
     }
 }
 
-# Window rules
 windowrulev2 = float, title:^(Open As) (.*)$
 windowrulev2 = float, title:^(Save As) (.*)$
 windowrulev2 = float, title:^(Open File)$
@@ -55,7 +82,6 @@ windowrulev2 = opacity 0.8, class:^(Code)$
 windowrulev2 = opacity 0.8, class:^(kitty)$
 windowrulev2 = opacity 0.9, class:^(firefox)$
 
-# Autostart
 exec-once = /usr/lib/polkit-kde-authentication-agent-1
 exec-once = waybar
 exec-once = dunst
@@ -64,17 +90,14 @@ exec-once = /usr/lib/xdg-desktop-portal-hyprland
 exec-once = sleep 2 && hyprpaper
 exec-once = nm-applet --indicator
 
-# Keybinds
 $mainMod = SUPER
 
 bind = $mainMod, Q, killactive
 bind = $mainMod, T, exec, kitty
 bind = $mainMod, W, exec, firefox
 bind = $mainMod, D, exec, rofi -show drun
-bind = $mainMod, V, exec, cliphist list | rofi -dmenu -config /home/workhub2/.config/rofi/cliphist.rasi | cliphist decode | wl-copy
 bind = $mainMod, F, fullscreen
 bind = $mainMod, L, exec, hyprlock
-bind = $mainMod, P, exec, grim -g "$(slurp)" /home/workhub2/screenshots/$(date +%Y%m%d-%H%M%S).png
 bind = $mainMod, Space, togglefloating
 bind = $mainMod, left, movefocus, l
 bind = $mainMod, right, movefocus, r
@@ -87,9 +110,7 @@ bind = $mainMod SHIFT, down, movewindow, d
 bind = $mainMod, Print, exec, grim /home/workhub2/screenshots/$(date +%Y%m%d-%H%M%S).png
 bind = , Print, exec, grim -g "$(slurp)" /home/workhub2/screenshots/$(date +%Y%m%d-%H%M%S).png
 bind = ALT, F4, exec, pkill -9 -f $(hyprctl activewindow -j | jq -r '.class')
-bind = $mainMod SHIFT, V, exec, cliphist list | head -1 | cliphist decode | wl-copy
 
-# Workspaces
 bind = $mainMod, 1, workspace, 1
 bind = $mainMod, 2, workspace, 2
 bind = $mainMod, 3, workspace, 3
@@ -99,7 +120,6 @@ bind = $mainMod, 6, workspace, 6
 bind = $mainMod, 7, workspace, 7
 bind = $mainMod, 8, workspace, 8
 bind = $mainMod, 9, workspace, 9
-
 bind = $mainMod SHIFT, 1, movetoworkspace, 1
 bind = $mainMod SHIFT, 2, movetoworkspace, 2
 bind = $mainMod SHIFT, 3, movetoworkspace, 3
@@ -110,5 +130,15 @@ bind = $mainMod SHIFT, 7, movetoworkspace, 7
 bind = $mainMod SHIFT, 8, movetoworkspace, 8
 bind = $mainMod SHIFT, 9, movetoworkspace, 9
 
-# Screenshots dir
 exec-once = mkdir -p /home/workhub2/screenshots
+HYPRLANDEOF
+
+# Crear shader vacio
+echo "// disable" > /home/workhub2/.config/hypr/shaders/disable.frag
+
+# Asegurar permisos
+chown -R workhub2:workhub2 /home/workhub2/.config/hypr
+chown -R workhub2:workhub2 /home/workhub2/screenshots
+
+echo "=== Listo! Reiniciando SDDM ==="
+sudo systemctl restart sddm
