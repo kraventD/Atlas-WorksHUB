@@ -38,6 +38,7 @@
         "/home/kravent/.local/share/waybar/modules/custom-wallchange.jsonc",
         "/home/kravent/.local/share/waybar/modules/custom-wbar.jsonc",
         "/home/kravent/.local/share/waybar/modules/custom-weather.jsonc",
+        "/home/kravent/.config/waybar/includes/custom-keep.jsonc",
         "/home/kravent/.local/share/waybar/modules/custom-workflows.jsonc",
         "/home/kravent/.local/share/waybar/modules/gamemode.jsonc",
         "/home/kravent/.local/share/waybar/modules/group-eyecare.jsonc",

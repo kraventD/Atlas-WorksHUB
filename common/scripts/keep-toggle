@@ -1,0 +1,25 @@
+#!/bin/bash
+# Toggle Google Keep in a floating Firefox window
+
+KEEP_URL="https://keep.google.com"
+CLASS="firefox"
+
+# Check if Keep is already open
+KEEP_WINDOW=$(hyprctl clients -j | jq -r '.[] | select(.title | test("Google Keep|Keep - Google")) | .address' | head -1)
+
+if [ -n "$KEEP_WINDOW" ]; then
+  # Close it
+  hyprctl dispatch closewindow "address:$KEEP_WINDOW"
+else
+  # Open it floating
+  firefox --new-window "$KEEP_URL" &
+  sleep 1
+  # Find the window and make it float with size 900x700
+  ADDR=$(hyprctl clients -j | jq -r '.[] | select(.title | test("Google Keep|Keep - Google")) | .address' | head -1)
+  if [ -n "$ADDR" ]; then
+    hyprctl dispatch setfloating "address:$ADDR"
+    hyprctl dispatch resizewindowpixel "exact 900 700,address:$ADDR"
+    hyprctl dispatch centerwindow "address:$ADDR"
+    hyprctl dispatch focuswindow "address:$ADDR"
+  fi
+fi

@@ -65,7 +65,8 @@
         "modules": [
             "privacy",
             "tray",
-            "battery"
+            "battery",
+            "custom/keep"
         ]
     },
     "group/pill#right3": {

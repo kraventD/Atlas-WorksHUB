@@ -1,0 +1,9 @@
+{
+    "custom/keep": {
+        "format": " {} ",
+        "exec": "echo ''",
+        "interval": "once",
+        "on-click": "keep-toggle",
+        "tooltip": false
+    }
+}
