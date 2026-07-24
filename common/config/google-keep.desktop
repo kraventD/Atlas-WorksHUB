@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Google Keep
+Comment=Google Keep Notes
+Exec=chromium --app=https://keep.google.com
+Icon=chromium
+Terminal=false
+Categories=Utility;Office;
+StartupWMClass=Google Keep

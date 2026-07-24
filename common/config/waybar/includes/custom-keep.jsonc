@@ -1,9 +1,10 @@
 {
     "custom/keep": {
         "format": " {} ",
-        "exec": "echo ''",
-        "interval": "once",
+        "exec": "if hyprctl clients -j | jq -e '.[] | select(.title | test(\"Google Keep\")) | .address' &>/dev/null; then echo ''; else echo ''; fi",
+        "interval": 5,
         "on-click": "keep-toggle",
+        "signal": 5,
         "tooltip": false
     }
 }

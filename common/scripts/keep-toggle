@@ -1,25 +1,35 @@
 #!/bin/bash
-# Toggle Google Keep in a floating Firefox window
+# Toggle Google Keep PWA (opens as standalone app via Chromium)
 
-KEEP_URL="https://keep.google.com"
-CLASS="firefox"
+KEEP_CLASS="chromium"
+KEEP_TITLE="Google Keep"
 
-# Check if Keep is already open
-KEEP_WINDOW=$(hyprctl clients -j | jq -r '.[] | select(.title | test("Google Keep|Keep - Google")) | .address' | head -1)
+# Check if Keep window is already open
+KEEP_WINDOW=$(hyprctl clients -j | jq -r --arg t "$KEEP_TITLE" '.[] | select(.title | test($t)) | .address' | head -1)
 
 if [ -n "$KEEP_WINDOW" ]; then
-  # Close it
-  hyprctl dispatch closewindow "address:$KEEP_WINDOW"
-else
-  # Open it floating
-  firefox --new-window "$KEEP_URL" &
-  sleep 1
-  # Find the window and make it float with size 900x700
-  ADDR=$(hyprctl clients -j | jq -r '.[] | select(.title | test("Google Keep|Keep - Google")) | .address' | head -1)
-  if [ -n "$ADDR" ]; then
-    hyprctl dispatch setfloating "address:$ADDR"
-    hyprctl dispatch resizewindowpixel "exact 900 700,address:$ADDR"
-    hyprctl dispatch centerwindow "address:$ADDR"
-    hyprctl dispatch focuswindow "address:$ADDR"
+  # If open on current workspace, close it. Otherwise, focus it
+  KEEP_WS=$(hyprctl clients -j | jq -r --arg a "$KEEP_WINDOW" '.[] | select(.address == $a) | .workspace.id')
+  CUR_WS=$(hyprctl activeworkspace -j | jq -r '.id')
+  if [ "$KEEP_WS" = "$CUR_WS" ]; then
+    hyprctl dispatch closewindow "address:$KEEP_WINDOW"
+  else
+    hyprctl dispatch focuswindow "address:$KEEP_WINDOW"
   fi
+else
+  # Open as standalone app (no browser UI)
+  chromium --app=https://keep.google.com &
+  sleep 1.5
+  # Wait for window and make it float
+  for i in 1 2 3; do
+    ADDR=$(hyprctl clients -j | jq -r --arg t "$KEEP_TITLE" '.[] | select(.title | test($t)) | .address' | head -1)
+    if [ -n "$ADDR" ]; then
+      hyprctl dispatch setfloating "address:$ADDR"
+      hyprctl dispatch resizewindowpixel "exact 900 700,address:$ADDR"
+      hyprctl dispatch centerwindow "address:$ADDR"
+      hyprctl dispatch focuswindow "address:$ADDR"
+      break
+    fi
+    sleep 0.5
+  done
 fi
